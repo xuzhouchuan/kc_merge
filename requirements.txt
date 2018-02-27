@@ -1,0 +1,8 @@
+et-xmlfile==1.0.1
+fortnum==0.0.8
+jdcal==1.3
+openpyxl==2.5.0
+openpyxl-templates==0.1.24
+xlrd==1.1.0
+xlutils==2.0.0
+xlwt==1.3.0
