@@ -50,25 +50,28 @@ def get_next_cell_name(cur_cell, line_or_column=False, step=1):
     lin_num = reobj.group(2)
     col_alpha = reobj.group(1)
     if not line_or_column:
-        new_col = []
-        up = 0
-        i = len(col_alpha) - 1
-        n = int(col_alpha[i], 36) - 10
-        new_n = (n + 1 + up) % 26
-        new_col.insert(0, alphabets[new_n]) 
-        up = (1 if (n + 1 + up) > 25 else 0)
-        i -= 1
-        while i >= 0:
+        while step > 0:
+            new_col = []
+            up = 0
+            i = len(col_alpha) - 1
             n = int(col_alpha[i], 36) - 10
-            new_n = (n + up) % 26 
+            new_n = (n + 1 + up) % 26
             new_col.insert(0, alphabets[new_n]) 
-            up = (1 if (n + up) > 25 else 0)
+            up = (1 if (n + 1 + up) > 25 else 0)
             i -= 1
-        if up != 0:
-            new_col.insert(0, alphabets[0])
+            while i >= 0:
+                n = int(col_alpha[i], 36) - 10
+                new_n = (n + up) % 26 
+                new_col.insert(0, alphabets[new_n]) 
+                up = (1 if (n + up) > 25 else 0)
+                i -= 1
+            if up != 0:
+                new_col.insert(0, alphabets[0])
+            col_alpha = ''.join(new_col)
+            step -= 1
         return ''.join(new_col) + lin_num
     else:
-        lin_num = str(int(lin_num, 10) + 1)
+        lin_num = str(int(lin_num, 10) + step)
         return col_alpha + lin_num
 
 class ExcelModifier(object):
@@ -624,11 +627,15 @@ class ContractSheetMergeFunction(SheetMergeFunction):
             format_end = cur_cell
             start_cell_name = get_next_cell_name(start_cell_name, True)
 
-        to_excel.style_range(cell_range="%s:%s" % (format_start, format_end))
+        bd = pxl.styles.Side(style='thin', color='000000')
+        to_excel.style_range(cell_range="%s:%s" % (format_start, format_end), \
+                border=pxl.styles.Border(left=bd, top=bd, right=bd, bottom=bd), \
+                fill=None, \
+                alignment=pxl.styles.Alignment(horizontal='center', vertical='center'))
 
         start_cell_name = get_next_cell_name(start_cell_name, True)
         start_cell_name = get_next_cell_name(start_cell_name, True)
-        out_ws[start_cell_name] = u'本月各类项目新增合同额'
+        out_ws[start_cell_name] = u'本月各公司各类项目合同额'
         out_ws[start_cell_name].font = pxl.styles.Font(name=u'宋体', size=16, bold=True)
         format_start = start_cell_name
         busi_names = [u'测绘地理信息', u'管线工程', u'应用地球物理工程', u'新兴业务航空遥感', u'新兴业务智慧城市', u'其他新兴业务\n（测绘地理信息类）',
@@ -636,12 +643,34 @@ class ContractSheetMergeFunction(SheetMergeFunction):
         titles = copy.deepcopy(busi_names)
         titles.insert(0, u'各单位名称')
         titles.extend([u'新兴业务新签合同', u'备注'])
+        out_ws.merge_cells('%s:%s' % (start_cell_name, get_next_cell_name(start_cell_name, False, len(titles) + len(busi_names) - 1)))
         start_cell_name = get_next_cell_name(start_cell_name, True)
         cell_name = start_cell_name
+        format_end =start_cell_name
         for i, t in enumerate(titles):
             out_ws[cell_name] = t
-            out_ws.merge_cells('%s:%s' % (cell_name, get_next_cell_name(cell_name, True)))
-            cell_name = get_next_cell_name(cell_name)
+            cell_end = cell_name
+            if t in busi_names:
+                cell_end = get_next_cell_name(cell_name)
+            else:
+                cell_end = get_next_cell_name(cell_name, True)
+            out_ws.merge_cells('%s:%s' % (cell_name, cell_end))
+            if t in busi_names:
+                first_cell = get_next_cell_name(cell_name, True)
+                second_cell = get_next_cell_name(get_next_cell_name(cell_name, True))
+                out_ws[first_cell] = u'新增合同额'
+                out_ws[second_cell] = u'总合同额'
+                format_end = second_cell
+                cell_name = get_next_cell_name(get_next_cell_name(cell_name))
+            else:
+                format_end = get_next_cell_name(cell_name, True)
+                cell_name = get_next_cell_name(cell_name)
+
+        bd = pxl.styles.Side(style='thin', color='000000')
+        to_excel.style_range("%s:%s" % (start_cell_name, format_end), \
+                border=pxl.styles.Border(left=bd, top=bd, right=bd, bottom=bd), \
+                fill=pxl.styles.PatternFill('solid', fgColor='ffff00'), \
+                font=pxl.styles.Font(name=u'宋体', size=14, bold=True))
 
         start_cell_name = get_next_cell_name(start_cell_name, True)
         start_cell_name = get_next_cell_name(start_cell_name, True)
@@ -653,6 +682,8 @@ class ContractSheetMergeFunction(SheetMergeFunction):
             new_busi_sum = 0.0
             for busi in busi_names:
                 out_ws[cur_cell] = contract_detail[key][busi]['amount']['this_month']['new']
+                cur_cell = get_next_cell_name(cur_cell)
+                out_ws[cur_cell] = contract_detail[key][busi]['amount']['this_month']['sum']
                 cur_cell = get_next_cell_name(cur_cell)
                 if busi.find(u'新兴') >= 0:
                     new_busi_sum += contract_detail[key][busi]['amount']['this_month']['new']
@@ -666,7 +697,7 @@ class ContractSheetMergeFunction(SheetMergeFunction):
                 out_ws[cur_cell] = u"、".join(new_busi_info[key])
             format_end = cur_cell 
             start_cell_name = get_next_cell_name(start_cell_name, True)
-        to_excel.style_range(cell_range="%s:%s" % (format_start, format_end))
+        to_excel.style_range(cell_range="%s:%s" % (format_start, format_end), alignment=pxl.styles.Alignment(horizontal='center', vertical='center'))
 
         #every business
         busi_new_amount = [0.0] * len(busi_names)
@@ -680,16 +711,25 @@ class ContractSheetMergeFunction(SheetMergeFunction):
         
         start_cell_name = get_next_cell_name(start_cell_name, True)
         format_start = start_cell_name
-        out_ws[start_cell_name] = u'各类项目本月新增合同额'
+        out_ws[start_cell_name] = u'各类项目本月合同额统计'
         out_ws[start_cell_name].font = pxl.styles.Font(name=u'宋体', size=16, bold=True)
+        out_ws[start_cell_name].alignment = pxl.styles.Alignment(horizontal='center')
         titles = [u'各单位名称', u'新签合同额', u'新签合同额占比', u'累计合同额', u'累计合同额占比']
+        out_ws.merge_cells('%s:%s' % (start_cell_name, get_next_cell_name(start_cell_name, False, len(titles) - 1)))
 
         start_cell_name = get_next_cell_name(start_cell_name, True)
         cur_cell = start_cell_name
+        title_start = start_cell_name
         for t in titles:
             out_ws[cur_cell] = t
             cur_cell = get_next_cell_name(cur_cell)
         start_cell_name = get_next_cell_name(start_cell_name, True)
+
+        to_excel.style_range("%s:%s" % (title_start, get_next_cell_name(title_start, False, len(titles) - 1)), \
+                border=pxl.styles.Border(left=bd, top=bd, right=bd, bottom=bd), \
+                fill=pxl.styles.PatternFill('solid', fgColor='ffff00'), \
+                font=pxl.styles.Font(name=u'宋体', size=14, bold=True))
+
         for i, busi in enumerate(busi_names):
             cur_cell = start_cell_name
             out_ws[cur_cell] = busi
@@ -706,7 +746,7 @@ class ContractSheetMergeFunction(SheetMergeFunction):
             format_end = cur_cell
             start_cell_name = get_next_cell_name(start_cell_name, True)
 
-        to_excel.style_range(cell_range="%s:%s" % (format_start, format_end))
+        to_excel.style_range(cell_range="%s:%s" % (format_start, format_end), alignment=pxl.styles.Alignment(horizontal='center', vertical='center'))
 
         to_excel.fit_width(2)
 
