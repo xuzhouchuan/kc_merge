@@ -182,7 +182,7 @@ class ExcelReader07(ExcelReader):
         self.file_name = file_name
         self.wb = pxl.load_workbook(file_name)
 
-    def get_value(self, sheet, x, y=-1, default=None):
+    def get_value(self, sheet, x, y=-1, default=None, type=None):
         if (y < 0):
             ret = self.wb[sheet][x]
             if ret == '' and default is not None:
@@ -191,13 +191,16 @@ class ExcelReader07(ExcelReader):
             ret = self.wb[sheet].cell(x, y).value
             if ret == '' and default is not None:
                 ret = default
-        return ret
+        if type:
+            return type(ret)
+        else:
+            return ret
 
 class ExcelReader03(ExcelReader):
     def __init__(self, file_name):
         self.in_book = xlrd.open_workbook(file_name, encoding_override='utf-8')
 
-    def get_value(self, sheet, x, y=-1, default=None):
+    def get_value(self, sheet, x, y=-1, default=None, type=None):
         if (y < 0):
             x, y = cell_name_to_coordinates(x)
         if y >= self.in_book.sheet_by_index(sheet).ncols or x >= self.in_book.sheet_by_index(sheet).nrows:
@@ -206,7 +209,10 @@ class ExcelReader03(ExcelReader):
         ret = self.in_book.sheet_by_index(sheet).cell(x, y).value
         if ret == '' and default is not None:
             ret = default
-        return ret
+        if type:
+            return type(ret)
+        else:
+            return ret
 
 
 class ExcelMerger(object):
@@ -273,15 +279,17 @@ class PersonSheetMergeFunction(SheetMergeFunction):
             if value is None:
                 print u"%s has no market-department people information" % key
                 return False
-            out_ws['C%d' % row_idx] = from_excel.get_value(0, x, 1)
-            out_ws['D%d' % row_idx] = from_excel.get_value(0, x, 2)
-            out_ws['E%d' % row_idx] = from_excel.get_value(0, x, 3)
+            b_n = from_excel.get_value(0, x, 1, 0, int)
+            e_n = from_excel.get_value(0, x, 2, 0, int)
+            out_ws['C%d' % row_idx] = b_n
+            out_ws['D%d' % row_idx] = e_n
+            out_ws['E%d' % row_idx] = division(b_n - e_n, b_n)
             out_ws['E%d' % row_idx].number_format = '0.00%'
             out_ws['F%d' % row_idx] = 1
             out_ws['F%d' % row_idx].number_format = '0.00%'
             #out_ws['F%d' % row_idx].guess_types = True
             out_ws['G%d' % row_idx] = u'无'
-            out_ws['H%d' % row_idx] = u'无'
+            out_ws['H%d' % row_idx] = from_excel.get_value(0, x, 4, '')
             sum_begin += from_excel.get_value(0, x, 1)
             sum_end += int(from_excel.get_value(0, x, 2, 0))
         row_idx = len(from_keys) + 3
@@ -465,28 +473,28 @@ class ContractSheetMergeFunction(SheetMergeFunction):
             contract_amount[key] = {"this_month": {}, "last_month": {}, "smly": {}}
             contract_detail[key] = {}
             smly_num = contract_num[key]["smly"]
-            smly_num["sum"] = from_excel.get_value(2, "B7", -1)
-            smly_num["carry"] = from_excel.get_value(2, "C7", -1)
-            smly_num["new"] = from_excel.get_value(2, "E7", -1)
-            smly_num["accum"] = from_excel.get_value(2, "D7", -1)
+            smly_num["sum"] = from_excel.get_value(2, "B7", -1, 0, int)
+            smly_num["carry"] = from_excel.get_value(2, "C7", -1, 0, int)
+            smly_num["new"] = from_excel.get_value(2, "E7", -1, 0, int)
+            smly_num["accum"] = from_excel.get_value(2, "D7", -1, 0, int)
 
             thism_num = contract_num[key]["this_month"]
-            thism_num["sum"] = from_excel.get_value(2, "F7", -1)
-            thism_num["carry"] = from_excel.get_value(2, "G7", -1)
-            thism_num["accum"] = from_excel.get_value(2, "H7", -1)
-            thism_num["new"] = from_excel.get_value(2, "I7", -1)
+            thism_num["sum"] = from_excel.get_value(2, "F7", -1, 0, int)
+            thism_num["carry"] = from_excel.get_value(2, "G7", -1, 0, int)
+            thism_num["accum"] = from_excel.get_value(2, "H7", -1, 0, int)
+            thism_num["new"] = from_excel.get_value(2, "I7", -1, 0, int)
 
             smly_amount = contract_amount[key]["smly"]
-            smly_amount["sum"] = from_excel.get_value(2, "J7", -1)
-            smly_amount["carry"] = from_excel.get_value(2, "K7", -1)
-            smly_amount["accum"] = from_excel.get_value(2, "L7", -1)
-            smly_amount["new"] = from_excel.get_value(2, "M7", -1)
+            smly_amount["sum"] = from_excel.get_value(2, "J7", -1, 0.0, float)
+            smly_amount["carry"] = from_excel.get_value(2, "K7", -1, 0.0, float)
+            smly_amount["accum"] = from_excel.get_value(2, "L7", -1, 0.0, float)
+            smly_amount["new"] = from_excel.get_value(2, "M7", -1, 0.0, float)
 
             thism_amount = contract_amount[key]["this_month"]
-            thism_amount["sum"] = from_excel.get_value(2, "N7", -1)
-            thism_amount["carry"] = from_excel.get_value(2, "O7", -1)
-            thism_amount["accum"] = from_excel.get_value(2, "P7", -1)
-            thism_amount["new"] = from_excel.get_value(2, "Q7", -1)
+            thism_amount["sum"] = from_excel.get_value(2, "N7", -1, 0.0, float)
+            thism_amount["carry"] = from_excel.get_value(2, "O7", -1, 0.0, float)
+            thism_amount["accum"] = from_excel.get_value(2, "P7", -1, 0.0, float)
+            thism_amount["new"] = from_excel.get_value(2, "Q7", -1, 0.0, float)
             
             #details
             details = contract_detail[key]
@@ -496,26 +504,26 @@ class ContractSheetMergeFunction(SheetMergeFunction):
                 details[busi_name] = {"num" : {"this_month": {}, "last_month": {}, "smly": {}},
                         "amount" : {"this_month": {}, "last_month": {}, "smly": {}}}
                 num = details[busi_name]["num"]
-                num["smly"]["sum"] = from_excel.get_value(2, "B%d" % lin_name, -1, 0.0)
-                num["smly"]["carry"] = from_excel.get_value(2, "C%d" % lin_name, -1, 0.0)
-                num["smly"]["accum"] = from_excel.get_value(2, "D%d" % lin_name, -1, 0.0)
-                num["smly"]["new"] = from_excel.get_value(2, "E%d" % lin_name, -1, 0.0)
+                num["smly"]["sum"] = from_excel.get_value(2, "B%d" % lin_name, -1, 0.0, float)
+                num["smly"]["carry"] = from_excel.get_value(2, "C%d" % lin_name, -1, 0.0, float)
+                num["smly"]["accum"] = from_excel.get_value(2, "D%d" % lin_name, -1, 0.0, float)
+                num["smly"]["new"] = from_excel.get_value(2, "E%d" % lin_name, -1, 0.0, float)
 
-                num["this_month"]["sum"] = from_excel.get_value(2, "F%d" % lin_name, -1, 0.0)
-                num["this_month"]["carry"] = from_excel.get_value(2, "G%d" % lin_name, -1, 0.0)
-                num["this_month"]["accum"] = from_excel.get_value(2, "H%d" % lin_name, -1, 0.0)
-                num["this_month"]["new"] = from_excel.get_value(2, "I%d" % lin_name, -1, 0.0)
+                num["this_month"]["sum"] = from_excel.get_value(2, "F%d" % lin_name, -1, 0.0, float)
+                num["this_month"]["carry"] = from_excel.get_value(2, "G%d" % lin_name, -1, 0.0, float)
+                num["this_month"]["accum"] = from_excel.get_value(2, "H%d" % lin_name, -1, 0.0, float)
+                num["this_month"]["new"] = from_excel.get_value(2, "I%d" % lin_name, -1, 0.0, float)
 
                 amount = details[busi_name]["amount"]
-                amount["smly"]["sum"] = from_excel.get_value(2, "J%d" % lin_name, -1, 0.0)
-                amount["smly"]["carry"] = from_excel.get_value(2, "K%d" % lin_name, -1, 0.0)
-                amount["smly"]["accum"] = from_excel.get_value(2, "L%d" % lin_name, -1, 0.0)
-                amount["smly"]["new"] = from_excel.get_value(2, "M%d" % lin_name, -1, 0)
+                amount["smly"]["sum"] = from_excel.get_value(2, "J%d" % lin_name, -1, 0.0, float)
+                amount["smly"]["carry"] = from_excel.get_value(2, "K%d" % lin_name, -1, 0.0, float)
+                amount["smly"]["accum"] = from_excel.get_value(2, "L%d" % lin_name, -1, 0.0, float)
+                amount["smly"]["new"] = from_excel.get_value(2, "M%d" % lin_name, -1, 0, float)
 
-                amount["this_month"]["sum"] = from_excel.get_value(2, "N%d" % lin_name, -1, 0.0)
-                amount["this_month"]["carry"] = from_excel.get_value(2, "O%d" % lin_name, -1, 0.0)
-                amount["this_month"]["accum"] = from_excel.get_value(2, "P%d" % lin_name, -1, 0.0)
-                amount["this_month"]["new"] = from_excel.get_value(2, "Q%d" % lin_name, -1, 0.0)
+                amount["this_month"]["sum"] = from_excel.get_value(2, "N%d" % lin_name, -1, 0.0, float)
+                amount["this_month"]["carry"] = from_excel.get_value(2, "O%d" % lin_name, -1, 0.0, float)
+                amount["this_month"]["accum"] = from_excel.get_value(2, "P%d" % lin_name, -1, 0.0, float)
+                amount["this_month"]["new"] = from_excel.get_value(2, "Q%d" % lin_name, -1, 0.0, float)
         out_ws = to_excel.get_new_sheet(self.title)
         out_ws['A1'].font = pxl.styles.Font(name=u'宋体', size=16, bold=True) 
         out_ws['A1'] = self.title + u'(单位：万元)'
