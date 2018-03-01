@@ -171,10 +171,17 @@ class ExcelWriter(object):
                 #if cell.coordinate in self.current_sheet.merged_cells:
                 #    continue
                 if cell.value:
-                    dims[cell.column] = max((dims.get(cell.column, 0), len(unicode(cell.value))))
+                    length = 0
+                    if type(cell.value) == float:
+                        length = 8
+                    elif len(unicode(cell.value).encode('utf-8')) > 2 * len(unicode(cell.value)):
+                        length = 2 * len(unicode(cell.value))
+                    else:
+                        length = len(unicode(cell.value))
+                    dims[cell.column] = max(dims.get(cell.column, 0), length)
 
         for col, value in dims.items():
-            self.current_sheet.column_dimensions[col].width = value * 2 + 2
+            self.current_sheet.column_dimensions[col].width = value * 1.1
 
 class ExcelReader(object):
     def __init__(self):
@@ -547,14 +554,14 @@ class ContractSheetMergeFunction(SheetMergeFunction):
                 u'合同总额同比',
                 u'新签合同环比',
                 u'新签合同额占集团比例',
-                u'本月总合同份数',
+                u'本月累计合同份数',
                 u'本月新签合同份数',
-                u'上月总合同份数',
+                u'上月累计合同份数',
                 u'上月新签合同份数',
-                u'去年同期总合同份数',
+                u'去年同期累计合同份数',
                 u'去年同期新签合同份数',
-                u'总合同份数同比增长',
-                u'总合同份数环比增长',
+                u'累计合同份数同比增长',
+                u'累计合同份数环比增长',
                 u'新签合同份数同比增长',
                 u'新签合同份数环比增长']
         cell_name = 'A2'
@@ -606,17 +613,17 @@ class ContractSheetMergeFunction(SheetMergeFunction):
             out_ws[cur_cell].number_format = '0.00%'
 
             cur_cell = get_next_cell_name(cur_cell)
-            out_ws[cur_cell] = contract_num[key]['this_month']['sum']
+            out_ws[cur_cell] = contract_num[key]['this_month']['accum']
             cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_num[key]['this_month']['new']
             cur_cell = get_next_cell_name(cur_cell)
             cur_cell = get_next_cell_name(cur_cell)
             cur_cell = get_next_cell_name(cur_cell)
-            out_ws[cur_cell] = contract_num[key]['smly']['sum']
+            out_ws[cur_cell] = contract_num[key]['smly']['accum']
             cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_num[key]['smly']['new']
             cur_cell = get_next_cell_name(cur_cell)
-            out_ws[cur_cell] = division(contract_num[key]['this_month']['sum'] - contract_num[key]['smly']['sum'], contract_num[key]['smly']['sum'])
+            out_ws[cur_cell] = division(contract_num[key]['this_month']['accum'] - contract_num[key]['smly']['accum'], contract_num[key]['smly']['accum'])
             out_ws[cur_cell].number_format = '0.00%'
             cur_cell = get_next_cell_name(cur_cell)
             cur_cell = get_next_cell_name(cur_cell)
@@ -632,7 +639,7 @@ class ContractSheetMergeFunction(SheetMergeFunction):
                 border=pxl.styles.Border(left=bd, top=bd, right=bd, bottom=bd), \
                 fill=None, \
                 alignment=pxl.styles.Alignment(horizontal='center', vertical='center'))
-
+        
         start_cell_name = get_next_cell_name(start_cell_name, True)
         start_cell_name = get_next_cell_name(start_cell_name, True)
         out_ws[start_cell_name] = u'本月各公司各类项目合同额'
@@ -659,7 +666,7 @@ class ContractSheetMergeFunction(SheetMergeFunction):
                 first_cell = get_next_cell_name(cell_name, True)
                 second_cell = get_next_cell_name(get_next_cell_name(cell_name, True))
                 out_ws[first_cell] = u'新增合同额'
-                out_ws[second_cell] = u'总合同额'
+                out_ws[second_cell] = u'今年累计合同额'
                 format_end = second_cell
                 cell_name = get_next_cell_name(get_next_cell_name(cell_name))
             else:
@@ -683,7 +690,7 @@ class ContractSheetMergeFunction(SheetMergeFunction):
             for busi in busi_names:
                 out_ws[cur_cell] = contract_detail[key][busi]['amount']['this_month']['new']
                 cur_cell = get_next_cell_name(cur_cell)
-                out_ws[cur_cell] = contract_detail[key][busi]['amount']['this_month']['sum']
+                out_ws[cur_cell] = contract_detail[key][busi]['amount']['this_month']['accum']
                 cur_cell = get_next_cell_name(cur_cell)
                 if busi.find(u'新兴') >= 0:
                     new_busi_sum += contract_detail[key][busi]['amount']['this_month']['new']
@@ -698,7 +705,6 @@ class ContractSheetMergeFunction(SheetMergeFunction):
             format_end = cur_cell 
             start_cell_name = get_next_cell_name(start_cell_name, True)
         to_excel.style_range(cell_range="%s:%s" % (format_start, format_end), alignment=pxl.styles.Alignment(horizontal='center', vertical='center'))
-
         #every business
         busi_new_amount = [0.0] * len(busi_names)
         busi_accum_amount = [0.0] * len(busi_names)
