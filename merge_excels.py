@@ -28,6 +28,13 @@ def division(first, second):
     elif first == 0:
         return '--'
 
+def get_keys(dict_data, key_str):
+    keys = key_str.strip().split(':')
+    d = dict_data
+    for k in keys:
+        d = d[k] 
+    return d
+
 def cell_name_to_coordinates(cell_name):
     col_name = [x for x in cell_name if x > '9' or x < '0'] 
     lin_name = [x for x in cell_name if x >= '0' and x <= '9']
@@ -537,33 +544,21 @@ class ContractSheetMergeFunction(SheetMergeFunction):
         out_ws = to_excel.get_new_sheet(self.title)
         out_ws['A1'].font = pxl.styles.Font(name=u'宋体', size=16, bold=True) 
         out_ws['A1'] = self.title + u'(单位：万元)'
-        out_ws.merge_cells('A1:V1')
+        out_ws.merge_cells('A1:K1')
         titles = [ u'单位名称',
-                u'各单位结转',
                 u'本月新签合同额',
                 u'本月累计新签合同额',
                 u'本月合同总额',
-                u'上月新签合同额',
-                u'上月累计新签合同额',
-                u'上月合同总额',
                 u'去年同期新签合同额',
                 u'去年同期累计新签合同额',
                 u'去年同期合同总额',
-                u'新签合同同比',
-                u'累计新签同比',
-                u'合同总额同比',
-                u'新签合同环比',
-                u'新签合同额占集团比例',
                 u'本月累计合同份数',
                 u'本月新签合同份数',
-                u'上月累计合同份数',
-                u'上月新签合同份数',
+                u'本月合同总份数',
                 u'去年同期累计合同份数',
                 u'去年同期新签合同份数',
-                u'累计合同份数同比增长',
-                u'累计合同份数环比增长',
-                u'新签合同份数同比增长',
-                u'新签合同份数环比增长']
+                u'去年同期合同总份数']
+
         cell_name = 'A2'
         for i, t in enumerate(titles):
             out_ws[cell_name] = t
@@ -578,59 +573,31 @@ class ContractSheetMergeFunction(SheetMergeFunction):
         for key in from_keys:
             out_ws[start_cell_name] = key
             cur_cell = get_next_cell_name(start_cell_name)
-            out_ws[cur_cell] = contract_amount[key]['this_month']['carry']
-            cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_amount[key]['this_month']['new']
             cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_amount[key]['this_month']['accum']
             cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_amount[key]['this_month']['sum']
             cur_cell = get_next_cell_name(cur_cell)
-            cur_cell = get_next_cell_name(cur_cell)
-            cur_cell = get_next_cell_name(cur_cell)
-            cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_amount[key]['smly']['new']
             cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_amount[key]['smly']['accum']
             cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_amount[key]['smly']['sum']
-            cur_cell = get_next_cell_name(cur_cell)
-
-            out_ws[cur_cell].number_format= '0.00%'
-            out_ws[cur_cell] = division(contract_amount[key]['this_month']['new'] - contract_amount[key]['smly']['new'], contract_amount[key]['smly']['new'])
-
-            cur_cell = get_next_cell_name(cur_cell)
-            out_ws[cur_cell].number_format= '0.00%'
-            out_ws[cur_cell] = division(contract_amount[key]['this_month']['accum'] - contract_amount[key]['smly']['accum'], contract_amount[key]['smly']['accum'])
-
-            cur_cell = get_next_cell_name(cur_cell)
-            out_ws[cur_cell].number_format= '0.00%'
-            out_ws[cur_cell] = division(contract_amount[key]['this_month']['sum'] - contract_amount[key]['smly']['sum'], contract_amount[key]['smly']['sum'])
-
-            cur_cell = get_next_cell_name(cur_cell)
-            cur_cell = get_next_cell_name(cur_cell)
-            out_ws[cur_cell] = contract_amount[key]['this_month']['new'] / new_sum_amount
-            out_ws[cur_cell].number_format = '0.00%'
 
             cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_num[key]['this_month']['accum']
             cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_num[key]['this_month']['new']
             cur_cell = get_next_cell_name(cur_cell)
-            cur_cell = get_next_cell_name(cur_cell)
+            out_ws[cur_cell] = contract_num[key]['this_month']['sum']
             cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_num[key]['smly']['accum']
             cur_cell = get_next_cell_name(cur_cell)
             out_ws[cur_cell] = contract_num[key]['smly']['new']
             cur_cell = get_next_cell_name(cur_cell)
-            out_ws[cur_cell] = division(contract_num[key]['this_month']['accum'] - contract_num[key]['smly']['accum'], contract_num[key]['smly']['accum'])
-            out_ws[cur_cell].number_format = '0.00%'
-            cur_cell = get_next_cell_name(cur_cell)
-            cur_cell = get_next_cell_name(cur_cell)
-            out_ws[cur_cell] = division(contract_num[key]['this_month']['new'] - contract_num[key]['smly']['new'], contract_num[key]['smly']['new'])
-            out_ws[cur_cell].number_format = '0.00%'
+            out_ws[cur_cell] = contract_num[key]['smly']['sum']
 
-            cur_cell = get_next_cell_name(cur_cell)
             format_end = cur_cell
             start_cell_name = get_next_cell_name(start_cell_name, True)
 
@@ -658,17 +625,19 @@ class ContractSheetMergeFunction(SheetMergeFunction):
             out_ws[cell_name] = t
             cell_end = cell_name
             if t in busi_names:
-                cell_end = get_next_cell_name(cell_name)
+                cell_end = get_next_cell_name(get_next_cell_name(cell_name))
             else:
                 cell_end = get_next_cell_name(cell_name, True)
             out_ws.merge_cells('%s:%s' % (cell_name, cell_end))
             if t in busi_names:
                 first_cell = get_next_cell_name(cell_name, True)
                 second_cell = get_next_cell_name(get_next_cell_name(cell_name, True))
+                third_cell = get_next_cell_name(get_next_cell_name(get_next_cell_name(cell_name, True)))
                 out_ws[first_cell] = u'新增合同额'
                 out_ws[second_cell] = u'今年累计合同额'
+                out_ws[third_cell] = u'去年累计合同额'
                 format_end = second_cell
-                cell_name = get_next_cell_name(get_next_cell_name(cell_name))
+                cell_name = get_next_cell_name(get_next_cell_name(get_next_cell_name(cell_name)))
             else:
                 format_end = get_next_cell_name(cell_name, True)
                 cell_name = get_next_cell_name(cell_name)
@@ -692,6 +661,8 @@ class ContractSheetMergeFunction(SheetMergeFunction):
                 cur_cell = get_next_cell_name(cur_cell)
                 out_ws[cur_cell] = contract_detail[key][busi]['amount']['this_month']['accum']
                 cur_cell = get_next_cell_name(cur_cell)
+                out_ws[cur_cell] = contract_detail[key][busi]['amount']['smly']['accum']
+                cur_cell = get_next_cell_name(cur_cell)
                 if busi.find(u'新兴') >= 0:
                     new_busi_sum += contract_detail[key][busi]['amount']['this_month']['new']
                     if contract_detail[key][busi]['amount']['this_month']['new'] > 0.0:
@@ -714,6 +685,39 @@ class ContractSheetMergeFunction(SheetMergeFunction):
                 busi_new_amount[i] += contract_detail[key][busi]['amount']['this_month']['new'] 
                 busi_accum_amount[i] += contract_detail[key][busi]['amount']['this_month']['accum'] 
                 all_busi_accum_amount += contract_detail[key][busi]['amount']['this_month']['accum'] 
+
+
+
+        start_cell_name = get_next_cell_name(start_cell_name, True)
+        single_tname = [u'新增合同额', u'今年累计合同额', u'去年累计合同额']
+        single_key = ['amount:this_month:new', 'amount:this_month:accum', 'amount:smly:accum']
+        for idx, tname in enumerate(single_tname):
+            format_start = start_cell_name
+            out_ws[start_cell_name] = u'按版块各数据单表:%s' % tname
+            titles = [u'各单位名称',]
+            titles.extend(busi_names)
+            out_ws.merge_cells('%s:%s' % (start_cell_name, get_next_cell_name(start_cell_name, False, len(titles) -1)))
+            start_cell_name = get_next_cell_name(start_cell_name, True)
+            cell_name = start_cell_name
+            for t in titles:
+                out_ws[cell_name] = t
+                cell_name = get_next_cell_name(cell_name)
+            start_cell_name = get_next_cell_name(start_cell_name, True)
+            for key in from_keys:
+                out_ws[start_cell_name] = key
+                cur_cell = get_next_cell_name(start_cell_name)
+                for busi in busi_names:
+                    out_ws[cur_cell] = get_keys(contract_detail[key][busi], single_key[idx])
+                    format_end = cur_cell
+                    cur_cell = get_next_cell_name(cur_cell)
+                start_cell_name = get_next_cell_name(start_cell_name, True)
+
+            to_excel.style_range(cell_range='%s:%s' % (format_start, format_end), \
+                    border=pxl.styles.Border(left=bd, top=bd, right=bd, bottom=bd), \
+                    fill=None, \
+                    font=pxl.styles.Font(name=u'宋体', size=12), \
+                    alignment=pxl.styles.Alignment(horizontal='center', vertical='center'))
+
         
         start_cell_name = get_next_cell_name(start_cell_name, True)
         format_start = start_cell_name
