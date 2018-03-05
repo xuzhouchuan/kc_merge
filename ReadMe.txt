@@ -1,5 +1,7 @@
 使用方法：
-python ./merge_excel.py -d 放各个公司excel的目录名 [-o 输出文件名]
+1.安装python和pip, http://blog.csdn.net/lengqi0101/article/details/61921399
+2.安装python 依赖包 pip install -r requires.txt
+3.python ./merge_excel.py -d 放各个公司excel的目录名 [-o 输出文件名]
 这是一个自己用的，处理excel合并的自动化程序，代码只能用屎来形容，特别烂。
 总结一下烂在什么地方：
 1.目录组织不行，一个文件处理了所有事情，就是个呆子
