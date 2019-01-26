@@ -197,16 +197,18 @@ class ExcelReader(object):
 class ExcelReader07(ExcelReader):
     def __init__(self, file_name):
         self.file_name = file_name
-        self.wb = pxl.load_workbook(file_name)
+        self.wb = pxl.load_workbook(file_name, data_only=True)
 
     def get_value(self, sheet, x, y=-1, default=None, type=None):
         if (y < 0):
-            ret = self.wb[sheet][x]
-            if ret == '' and default is not None:
+            ret = self.wb.worksheets[sheet][x].value
+            if (ret == '' or ret is None) and default is not None:
                 ret = default
         else:
-            ret = self.wb[sheet].cell(x, y).value
-            if ret == '' and default is not None:
+            x = x + 1
+            y = y + 1
+            ret = self.wb.worksheets[sheet].cell(x, y).value
+            if (ret == '' or ret is None) and default is not None:
                 ret = default
         if type:
             return type(ret)
@@ -224,7 +226,7 @@ class ExcelReader03(ExcelReader):
             return None
 
         ret = self.in_book.sheet_by_index(sheet).cell(x, y).value
-        if ret == '' and default is not None:
+        if (ret == '' or ret is None) and default is not None:
             ret = default
         if type:
             return type(ret)
@@ -289,7 +291,13 @@ class PersonSheetMergeFunction(SheetMergeFunction):
             for x_x in range(13, 1, -1):
                 v = from_excel.get_value(0, x_x, 1)
                 vv = from_excel.get_value(0, x_x, 2)
-                if v is not None and len(str(v)) > 0 and vv is not None and len(str(vv)) > 0:
+                v_str = v
+                vv_str = vv
+                if type(v) == float or type(v) == int or type(v) == long:
+                    v_str = str(v)
+                if type(vv) == float or type(vv) == int or type(vv) == long:
+                    vv_str = str(vv)
+                if v is not None and len(v_str) > 0 and vv is not None and len(vv_str) > 0:
                     value = v
                     x = x_x
                     break
@@ -331,7 +339,7 @@ class BiddingSheetMergeFunction(SheetMergeFunction):
             from_excel = from_excel_list[idx]
             start_x = -1
             start_y = 3
-            for i in range(0, 50):
+            for i in range(0, 100):
                 v = from_excel.get_value(3, i, 2)
                 if v == u'市场区域':
                     start_x = i
@@ -777,8 +785,12 @@ def get_sub_excels(sub_dir):
             else:
                 excel_reader = ExcelReader07(os.path.join(sub_dir, f))
             excel_list.append(excel_reader)
-
-            key = os.path.splitext(f)[0].split('--')[1]
+            print f
+            tmp_keys = os.path.splitext(f)[0].split('--')
+            if len(tmp_keys) == 2:
+                key = tmp_keys[1]
+            else:
+                key = os.path.splitext(f)[0].split('-')[1]
             excel_key_list.append(key)
     return (excel_list, excel_key_list)
 
