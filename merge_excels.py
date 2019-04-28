@@ -81,6 +81,10 @@ def get_next_cell_name(cur_cell, line_or_column=False, step=1):
         lin_num = str(int(lin_num, 10) + step)
         return col_alpha + lin_num
 
+busi_names = [u'测绘地理信息', u'管线工程', u'应用地球物理工程', u'新兴业务航空遥感', u'新兴业务智慧城市', u'其他新兴业务\n（测绘地理信息类）',
+        u'其他新兴业务\n（管线工程类）', u'其他新兴业务\n（应用地球物理工程类）']
+
+
 class ExcelModifier(object):
     def __init__(self):
         self.out_book = None
@@ -198,6 +202,31 @@ class ExcelReader07(ExcelReader):
     def __init__(self, file_name):
         self.file_name = file_name
         self.wb = pxl.load_workbook(file_name, data_only=True)
+        self.current_sheet = None
+    def set_current_sheet(self, sheet_name):
+        try:
+            self.current_sheet = self.wb[sheet_name]
+            return True
+        except Exception as e:
+            return False
+
+    def get_current_sheet_value(self, x, y=-1, default=None, type=None):
+        if self.current_sheet is None:
+            print u"file:%s, current_sheet is None" % self.file_name
+            return None
+        if (y < 0):
+            ret = self.current_sheet[x].value
+        else:
+            x = x + 1
+            y = y + 1
+            ret = self.current_sheet.cell(x,y).value
+        if (ret == '' or ret is None) and default is not None:
+            ret = default
+        if type:
+            return type(ret)
+        else:
+            return ret
+
 
     def get_value(self, sheet, x, y=-1, default=None, type=None):
         if (y < 0):
@@ -218,6 +247,29 @@ class ExcelReader07(ExcelReader):
 class ExcelReader03(ExcelReader):
     def __init__(self, file_name):
         self.in_book = xlrd.open_workbook(file_name, encoding_override='utf-8')
+
+        self.current_sheet = None
+        self.file_name = file_name
+    def set_current_sheet(self, sheet_name):
+        try:
+            self.current_sheet = self.in_book.sheet_by_name(sheet_name)
+            return True
+        except Exception as e:
+            return False
+
+    def get_current_sheet_value(self, x, y=-1, default=None, type=None):
+        if self.current_sheet is None:
+            print u"file:%s, current_sheet is None" % self.file_name
+            return None
+        if (y < 0):
+            x, y = cell_name_to_coordinates(x)
+
+        ret = self.current_sheet.cell(x,y).value
+        if (ret == '' or ret is None) and default is not None:
+            ret = default
+        if type:
+            return type(ret)
+        return ret
 
     def get_value(self, sheet, x, y=-1, default=None, type=None):
         if (y < 0):
@@ -326,6 +378,161 @@ class PersonSheetMergeFunction(SheetMergeFunction):
         to_excel.fit_width(2)
         return True
 
+class ReturnMoneyMergeFunction(SheetMergeFunction):
+    def __init__(self):
+        self.from_title = u'附表6 本月回款情况统计表'
+        self.sheet_title = u'回款情况'
+        self.title1 = u'各单位回款情况'
+        self.title2 = u'各板块回款情况'
+        self.heads = [u'序号', u'名称', u'回款总额（万元）', u'回款占比']
+
+    def merge(self, to_excel, from_excel_list, from_keys):
+        #summary
+        company_busi_return_money_map = {}
+        for idx, key in enumerate(from_keys):
+            company_busi_return_money_map[key] = {}
+            from_excel = from_excel_list[idx]
+            set_sheet_ret = from_excel.set_current_sheet(self.from_title) 
+            if not set_sheet_ret:
+                print key
+                print "no sheet named:%s" % self.from_title
+                sys.exit(1)
+            row_i = 4
+            total_money = 0.0
+            while True:
+                try:
+                    value = from_excel.get_current_sheet_value('E%d' % row_i, default=-1.0, type=float)
+                except:
+                    break
+                value = value / 10000.0
+                busi_name = from_excel.get_current_sheet_value('D%d' % row_i)
+                if value < 0.0:
+                    break 
+                is_total = from_excel.get_current_sheet_value('A%d' % row_i)
+                if is_total == u'合计':
+                    break
+                if busi_name is None or busi_name == '':
+                    busi_name = "未知分类"
+                busi_name = busi_name.strip()
+                total_money += value
+                if company_busi_return_money_map[key].get(busi_name) is None:
+                    company_busi_return_money_map[key][busi_name] = 0.0
+                company_busi_return_money_map[key][busi_name] += value
+                row_i += 1
+            company_busi_return_money_map[key]['total'] = total_money
+
+        all_total_money = 0.0
+        busi_return_total_money_map = {}
+        for k, x in company_busi_return_money_map.iteritems():
+            for t, y in x.iteritems():
+                if t == 'total':
+                    all_total_money += y
+                else:
+                    if t not in busi_return_total_money_map:
+                        busi_return_total_money_map[t] = 0.0
+                    busi_return_total_money_map[t] += y
+        
+
+        #write values
+        out_ws = to_excel.get_new_sheet(self.sheet_title)
+        out_ws['A1'] = self.title1
+        out_ws.merge_cells('A1:D1')
+        #title style
+        out_ws['A1'].font = pxl.styles.Font(name=u'宋体',\
+                size=16, bold=True)
+        out_ws['A1'].alignment = pxl.styles.Alignment(horizontal='center')
+        #TODO format content
+        row = out_ws['A2:D2'][0]
+        #write table heads
+        for i, c in enumerate(row):
+            c.value = self.heads[i]
+        idx = 1 
+
+        range_start = 'A2'
+        range_end = 'D2'
+
+        for com_name, value in company_busi_return_money_map.iteritems():
+            cell_idx = idx + 2
+            out_ws['A%d' % cell_idx] = idx
+            out_ws['B%d' % cell_idx] = com_name
+            out_ws['C%d' % cell_idx] = value['total']
+            out_ws['D%d' % cell_idx] = value['total'] / all_total_money
+            out_ws['D%d' % cell_idx].number_format = '0.00%'
+            idx += 1
+        #总计
+        cell_idx = idx + 3
+        out_ws['B%d' % cell_idx] = '总计'
+        out_ws['C%d' % cell_idx] = all_total_money
+        range_end = 'D%d' % cell_idx
+        
+        format_range = '%s:%s' % (range_start, range_end)
+        bd = pxl.styles.Side(style='thin', color='000000')
+        to_excel.style_range(cell_range=format_range, \
+                border=pxl.styles.Border(left=bd, top=bd, right=bd, bottom=bd), \
+                fill=None, \
+                font=pxl.styles.Font(name=u'宋体', size=12), \
+                alignment=pxl.styles.Alignment(horizontal='center', vertical='center'))
+
+
+        cell_idx = idx + 6
+        out_ws['A%d' % cell_idx] = self.title2
+        out_ws.merge_cells('A%d:D%d' % (cell_idx, cell_idx))
+        #title style
+        out_ws['A%d' % cell_idx].font = pxl.styles.Font(name=u'宋体',\
+                size=16, bold=True)
+        out_ws['A%d' % cell_idx].alignment = pxl.styles.Alignment(horizontal='center')
+        #TODO format content
+        cell_idx += 1
+        range_start = 'A%d' % cell_idx
+        range_end = 'D%d' % cell_idx
+        row = out_ws['A%d:D%d' % (cell_idx, cell_idx)][0]
+        #write table heads
+        for i, c in enumerate(row):
+            c.value = self.heads[i]
+
+        idx = 1
+        row_idx = 0
+        for busi_name in busi_names:
+            busi_value = busi_return_total_money_map.get(busi_name, 0.0)
+            row_idx = cell_idx + idx
+            out_ws['A%d' % row_idx] = idx
+            out_ws['B%d' % row_idx] = busi_name
+            out_ws['C%d' % row_idx] = busi_value
+            out_ws['D%d' % row_idx] = busi_value / all_total_money
+            out_ws['D%d' % row_idx].number_format = '0.00%'
+            idx += 1
+
+        row_idx = cell_idx + idx + 1
+        out_ws['B%d' % row_idx] = '总计'
+        out_ws['C%d' % row_idx] = all_total_money
+        range_end = 'D%d' % row_idx
+        row_idx += 1 
+        out_ws['A%d' % row_idx] = 'exception:'
+        for com_name, v in company_busi_return_money_map.iteritems():
+            for t, y in v.iteritems():
+                if t != u'total' and t not in busi_names:
+                    row_idx += 1
+                    out_ws['A%d' % row_idx] = com_name
+                    out_ws['B%d' % row_idx] = t
+                    out_ws['C%d' % row_idx] = y
+
+
+        format_range = '%s:%s' % (range_start, range_end)
+        to_excel.style_range(cell_range=format_range, \
+                border=pxl.styles.Border(left=bd, top=bd, right=bd, bottom=bd), \
+                fill=None, \
+                font=pxl.styles.Font(name=u'宋体', size=12), \
+                alignment=pxl.styles.Alignment(horizontal='center', vertical='center'))
+
+
+
+    #out_ws['A%d' % (idx + 3)] = (idx + 1)
+            #out_ws['B%d' % (idx + 3)] = key
+
+
+
+
+
 class BiddingSheetMergeFunction(SheetMergeFunction):
     def __init__(self):
         self.title = u'投标汇报数据'
@@ -402,7 +609,6 @@ class BiddingSheetMergeFunction(SheetMergeFunction):
             out_ws['E%d' % (start_x + 2)] = u'中标次数'
             out_ws['E%d' % (start_x + 3)] = u'中标率'
             out_ws['F%d' % start_x] = u'合计'
-            
             total_bidding = 0
             hit_bidding = 0
             province_num = 0
@@ -787,10 +993,21 @@ def get_sub_excels(sub_dir):
             excel_list.append(excel_reader)
             print f
             tmp_keys = os.path.splitext(f)[0].split('--')
+            key = None
             if len(tmp_keys) == 2:
                 key = tmp_keys[1]
-            else:
-                key = os.path.splitext(f)[0].split('-')[1]
+            if key is None:
+                tmp_keys = os.path.splitext(f)[0].split('-')
+            if len(tmp_keys) == 2:
+                key = tmp_keys[1]
+            if key is None:
+                tmp_keys = os.path.splitext(f)[0].split('——')
+            if len(tmp_keys) == 2:
+                key = tmp_keys[1]
+            if key is None:
+                print "file name error"
+                sys.exit(1)
+
             excel_key_list.append(key)
     return (excel_list, excel_key_list)
 
@@ -799,6 +1016,7 @@ def make_strategy():
     strategy_driver.add_merge_strategy(PersonSheetMergeFunction())
     strategy_driver.add_merge_strategy(BiddingSheetMergeFunction())
     strategy_driver.add_merge_strategy(ContractSheetMergeFunction())
+    strategy_driver.add_merge_strategy(ReturnMoneyMergeFunction())
     return strategy_driver
 
 def main(argv):
