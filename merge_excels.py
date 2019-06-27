@@ -394,9 +394,12 @@ class ReturnMoneyMergeFunction(SheetMergeFunction):
             from_excel = from_excel_list[idx]
             set_sheet_ret = from_excel.set_current_sheet(self.from_title) 
             if not set_sheet_ret:
-                print key
-                print "no sheet named:%s" % self.from_title
-                sys.exit(1)
+                title = u'附表6本月回款情况统计表'
+                set_sheet_ret = from_excel.set_current_sheet(title)
+                if not set_sheet_ret:
+                    print key
+                    print "no sheet named:%s" % self.from_title
+                    sys.exit(1)
             row_i = 4
             total_money = 0.0
             while True:
@@ -554,6 +557,7 @@ class BiddingSheetMergeFunction(SheetMergeFunction):
             bidding_info = []
             for i in range(start_y, 50):
                 region = from_excel.get_value(3, start_x, i)
+                print region
                 if region is not None and len(unicode(region)) > 0:
                     if region.endswith(u'省'):
                         region = region[:-1]
